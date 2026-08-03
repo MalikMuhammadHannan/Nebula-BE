@@ -1,5 +1,5 @@
 from sqlalchemy import String, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column,relationship
 from datetime import datetime, timezone
 from sqlalchemy import DateTime
 from app.database.base import Base
@@ -38,4 +38,9 @@ class User(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+    
+    blogs = relationship(
+        "Blog",
+        back_populates="author"
     )

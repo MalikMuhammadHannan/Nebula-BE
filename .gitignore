@@ -1,1 +1,58 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# ======================
+# Poetry
+# ======================
+poetry.toml
+
+# ======================
+# Environment variables
+# ======================
 .env
+.env.*
+
+# ======================
+# IDE
+# ======================
+.vscode/
+.idea/
+
+# ======================
+# OS
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# Testing
+# ======================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ======================
+# Logs
+# ======================
+*.log
+
+# ======================
+# Database
+# ======================
+*.sqlite3
+*.db
+
+# ======================
+# Alembic
+# ======================
+# Keep migration files
+# Don't ignore alembic/versions/
