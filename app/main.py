@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from app.api.auth import router as auth_router
 from app.api.blogs import  router as blog_router
+from app.api.upload import  router as upload_router
+
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -20,3 +22,5 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(blog_router)
+app.include_router(upload_router)
+
