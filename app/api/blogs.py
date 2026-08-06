@@ -36,13 +36,26 @@ def create_blog(blog_data:BlogCreate, db:Session = Depends(get_db),
     return blog
 
 
+@router.get("/public", response_model=List[BlogResponse])
+def get_blogs(db: Session = Depends(get_db)):
+    return db.query(Blog).all()
 
+
+@router.get("/public/{id}", response_model=BlogResponse)
+def get_blog(id: int, db: Session = Depends(get_db)):
+    blog = db.query(Blog).filter(Blog.id == id).first()
+
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+
+    return blog
 
 @router.get("/",response_model=List[BlogResponse])
 def get_blogs(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),current_user:User=Depends(get_current_user)
+    
 ):
-    blogs = db.query(Blog).all()
+    blogs = db.query(Blog).filter(Blog.author_id == current_user.id).all()
     return blogs
 
 
