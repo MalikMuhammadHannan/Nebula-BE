@@ -44,3 +44,7 @@ class User(Base):
         "Blog",
         back_populates="author"
     )
+    documents = relationship(
+        "Document",
+        back_populates="owner"
+    )

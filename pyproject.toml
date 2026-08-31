@@ -5,7 +5,7 @@ description = ""
 authors = [
     {name = "hannan-tsx",email = "hannanmalik228@gmail.com"}
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "fastapi (>=0.140.0,<0.141.0)",
     "uvicorn[standard] (>=0.51.0,<0.52.0)",
@@ -20,7 +20,15 @@ dependencies = [
     "bcrypt (==4.3.0)",
     "cloudinary (>=1.45.0,<2.0.0)",
     "slugify (>=0.0.1,<0.0.2)",
-    "python-slugify (>=8.0.4,<9.0.0)"
+    "python-slugify (>=8.0.4,<9.0.0)",
+    "diffusers (>=0.40.0,<0.41.0)",
+    "transformers (>=5.16.1,<6.0.0)",
+    "torch (>=2.13.0,<3.0.0)",
+    "langchain-huggingface (>=1.2.2,<2.0.0)",
+    "sentence-transformers (>=6.0.0,<7.0.0)",
+    "pgvector (>=0.5.0,<0.6.0)",
+    "pypdf (>=6.16.2,<7.0.0)",
+    "python-docx (>=1.2.0,<2.0.0)"
 ]
 
 

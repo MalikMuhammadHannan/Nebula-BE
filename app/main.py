@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import app.models  # noqa: F401 ensures all models are registered before mappers configure
 from app.api.auth import router as auth_router
 from app.api.blogs import  router as blog_router
 from app.api.upload import  router as upload_router
