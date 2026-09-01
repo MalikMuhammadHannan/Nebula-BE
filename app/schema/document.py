@@ -11,3 +11,15 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class DocumentUploadResponse(BaseModel):
+    session_id: str
+    filename: str
+    file_type: str
+    status: str
+
+
+class DocumentQueryRequest(BaseModel):
+    session_id: str
+    query: str

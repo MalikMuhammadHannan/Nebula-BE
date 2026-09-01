@@ -1,6 +1,7 @@
 from sqlalchemy import String, Text, Boolean , DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 from datetime import datetime,timezone
+from pgvector.sqlalchemy import Vector
 
 
 from app.database.base import Base
@@ -53,6 +54,7 @@ class Blog(Base):
         nullable=False
     )
 
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

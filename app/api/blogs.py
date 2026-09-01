@@ -8,6 +8,7 @@ from app.schema.blogs import BlogCreate, BlogResponse,BlogUpdate
 from typing import List
 from slugify import slugify
 from app.services.cloudinary import delete_upload_image
+from app.ai.embeddings import embedding_service
 
 
 
@@ -15,6 +16,11 @@ router = APIRouter(
     prefix="/blogs"
     ,tags=["Blogs"]
 )
+
+
+def _embed_blog_text(title: str, description: str, content: str) -> list[float]:
+    text = f"{title}\n{description}\n{content}"
+    return embedding_service.embed_texts([text])[0]
 
 
 @router.post("/",response_model=BlogResponse)
@@ -26,13 +32,14 @@ def create_blog(blog_data:BlogCreate, db:Session = Depends(get_db),
         description=blog_data.description,
         image_url=blog_data.image_url,
         author_id=current_user.id,
-        content=blog_data.content
+        content=blog_data.content,
+        embedding=_embed_blog_text(blog_data.title, blog_data.description, blog_data.content)
     )
-    
+
     db.add(blog)
     db.commit()
     db.refresh(blog)
-    
+
     return blog
 
 
@@ -82,13 +89,17 @@ def update_blog(id:str, blog_data:BlogUpdate,db:Session = Depends(get_db),curren
         
     if blog_data.image_url and blog_data.image_url != blog.image_url:
             delete_upload_image(blog.image_url)
-        
+
     updated_blog = blog_data.model_dump(exclude_unset=True)
     for key,values in updated_blog.items():
         setattr(blog,key,values)
+
+    if {"title", "description", "content"} & updated_blog.keys():
+        blog.embedding = _embed_blog_text(blog.title, blog.description, blog.content)
+
     db.commit()
     db.refresh(blog)
-    
+
     return blog
     
 
