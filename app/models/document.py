@@ -35,3 +35,9 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan"
     )
+
+    chat_turns = relationship(
+        "DocumentChatTurn",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
