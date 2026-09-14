@@ -5,6 +5,9 @@ from pgvector.sqlalchemy import Vector
 
 
 from app.database.base import Base
+from app.models.like import Like
+from app.models.comments import Comment
+
 
 class Blog(Base):
     __tablename__ = "blogs"
@@ -70,4 +73,10 @@ class Blog(Base):
     author = relationship(
         "User",
         back_populates="blogs"
+    )
+    comments: Mapped[list["Comment"]] = relationship(
+    "Comment", back_populates="blog", cascade="all, delete-orphan"
+    )   
+    likes: Mapped[list["Like"]] = relationship(
+        "Like", back_populates="blog", cascade="all, delete-orphan"
     )

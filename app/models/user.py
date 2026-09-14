@@ -3,6 +3,8 @@ from sqlalchemy.orm import Mapped, mapped_column,relationship
 from datetime import datetime, timezone
 from sqlalchemy import DateTime
 from app.database.base import Base
+from app.models.like import Like
+from app.models.comments import Comment
 
 class User(Base):
     __tablename__ = "users"
@@ -48,3 +50,9 @@ class User(Base):
         "Document",
         back_populates="owner"
     )
+    comments: Mapped[list["Comment"]] = relationship(
+    "Comment", back_populates="user", cascade="all, delete-orphan"
+    )
+    likes: Mapped[list["Like"]] = relationship(
+        "Like", back_populates="user", cascade="all, delete-orphan"
+    ) 
