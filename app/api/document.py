@@ -3,7 +3,6 @@ from typing import List
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.jwt import get_current_user
@@ -22,8 +21,9 @@ from app.ai.llm import LLMService
 
 TOP_K_CHUNKS = 5
 HISTORY_LIMIT = 5
+RELEVANCE_THRESHOLD = 0.75
 
-QUERY_PROMPT = """You are a research assistant that writes a short blog-style answer strictly grounded in excerpts of a document uploaded by the user.
+QUERY_PROMPT = """You are a document question-answering assistant.
 
 Previous questions in this session (most recent last):
 {history}
@@ -34,19 +34,8 @@ Relevant document excerpts:
 User question:
 {query}
 
-Rules:
-- Base your answer only on the excerpts above and the previous answers in this session. Do not use any outside knowledge.
-- First try to write title, description and content answering the question using only the excerpts.
-- If the excerpts do not actually contain information that answers the question, leave title, description and content empty instead.
-- Finally, set found to true only if you actually wrote a real title/description/content above, otherwise set found to false.
+Write a concise answer to the question in 2-3 sentences, using only the information in the excerpts and previous answers above. Do not use outside knowledge, and do not guess or invent information.
 """
-
-
-class GeneratedBlogPost(BaseModel):
-    title: str = Field(default="", description="Short, non-empty title, a few words. Leave empty if the excerpts don't answer the question")
-    description: str = Field(default="", description="Exactly one short sentence summarizing the answer. Leave empty if the excerpts don't answer the question")
-    content: str = Field(default="", description="2-3 sentences answering the question, grounded only in the document excerpts. Leave empty if the excerpts don't answer the question")
-    found: bool = Field(description="True only if title/description/content above were actually filled in with a real answer, false if they were left empty")
 
 
 router = APIRouter(
@@ -210,46 +199,50 @@ def query_document(
         payload.query
     )
 
-    chunks = (
-        db.query(DocumentChunk)
+    distance_expr = DocumentChunk.embedding.cosine_distance(query_embedding)
+    rows = (
+        db.query(DocumentChunk, distance_expr.label("distance"))
         .filter(
             DocumentChunk.document_id == document.id,
             DocumentChunk.embedding.isnot(None),
         )
-        .order_by(
-            DocumentChunk.embedding.cosine_distance(query_embedding)
-        )
+        .order_by(distance_expr)
         .limit(TOP_K_CHUNKS)
         .all()
     )
 
-    if not chunks:
+    if not rows or rows[0].distance > RELEVANCE_THRESHOLD:
         db.add(DocumentChatTurn(document_id=document.id, query=payload.query, found=False))
         db.commit()
         return []
 
-    context = "\n\n".join(chunk.chunk_text for chunk in chunks)
+    context = "\n\n".join(chunk.chunk_text for chunk, _ in rows)
 
     prompt = LLMService.get_prompt(QUERY_PROMPT)
-    chain = prompt | LLMService.get_model().with_structured_output(GeneratedBlogPost)
-    generated: GeneratedBlogPost = chain.invoke({
+    chain = prompt | LLMService.get_model()
+    raw = chain.invoke({
         "history": history,
         "context": context,
         "query": payload.query,
     })
-    
-    print(f"{previous_turns} , {document.id} Generated output: {generated}")  # Debugging line to print the generated output
+    answer = (raw.content or "").strip()
 
-    found = bool(generated.found and generated.title.strip() and generated.content.strip())
-
-    if not found:
+    if not answer:
         db.add(DocumentChatTurn(document_id=document.id, query=payload.query, found=False))
         db.commit()
         return []
 
+    sentences = [s.strip() for s in answer.replace("\n", " ").split(". ") if s.strip()]
+    description = sentences[0] if sentences else answer[:140]
+    if not description.endswith("."):
+        description += "."
+    words = answer.split()
+    title = " ".join(words[:8]) + ("..." if len(words) > 8 else "")
+    content = answer
+
     image_url = None
     try:
-        image = image_generator.generate(generated.title)
+        image = image_generator.generate(title)
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         buffer.seek(0)
@@ -261,9 +254,9 @@ def query_document(
         document_id=document.id,
         query=payload.query,
         found=True,
-        title=generated.title,
-        description=generated.description,
-        content=generated.content,
+        title=title,
+        description=description,
+        content=content,
         image_url=image_url,
     ))
     db.commit()
@@ -271,12 +264,12 @@ def query_document(
     return [
         {
             "id": 0,
-            "title": generated.title,
-            "description": generated.description,
+            "title": title,
+            "description": description,
             "image_url": image_url,
             "author_id": current_user.id,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "content": generated.content,
+            "content": content,
         }
     ]
 
