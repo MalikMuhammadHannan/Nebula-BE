@@ -64,6 +64,8 @@ def login(data:LoginRequest,
         hashed_password=user.password_hash,
         plain_password=data.password
     )
+    if not user.is_active:
+        raise HTTPException(status_code=403,detail="User is not active")
     
     if not is_password_valid:
         raise HTTPException(status_code=401,detail="Incorrect Password")
