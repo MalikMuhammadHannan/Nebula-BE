@@ -5,7 +5,7 @@ from app.database.session import get_db
 from app.core.jwt import require_admin
 from app.ai.user_agent import find_users_from_query
 from app.models.user import User
-from app.schema.user import AssistantQuery, AssistantResponse, DeactivateUserRequest, UserResponse
+from app.schema.user import AssistantQuery, AssistantResponse, ConfirmActionRequest, UserResponse
 
 
 router = APIRouter(
@@ -27,7 +27,9 @@ def ai_assistant(
     payload: AssistantQuery,
     current_user: User = Depends(require_admin),
 ):
-    matches = find_users_from_query(payload.query)
+    result = find_users_from_query(payload.query)
+    action = result["action"]
+    matches = result["matches"]
 
     if not matches:
         raise HTTPException(
@@ -35,19 +37,21 @@ def ai_assistant(
             detail="Could not find a matching user",
         )
 
+    verb = {"activate": "Activate", "deactivate": "Deactivate"}.get(action, "Confirm action on")
+
     if len(matches) == 1:
         m = matches[0]
-        message = f"Found {m['full_name']} ({m['email']}). Deactivate this user?"
+        message = f"Found {m['full_name']} ({m['email']}). {verb} this user?"
     else:
         message = "Multiple users matched — please be more specific."
 
-    return AssistantResponse(matches=matches, message=message)
+    return AssistantResponse(action=action, matches=matches, message=message)
 
 
 @router.post("/{user_id}/deactivate", response_model=UserResponse)
 def deactivate_user(
     user_id: int,
-    payload: DeactivateUserRequest,
+    payload: ConfirmActionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -59,6 +63,27 @@ def deactivate_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_active = False
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+@router.post("/{user_id}/activate", response_model=UserResponse)
+def activate_user(
+    user_id: int,
+    payload: ConfirmActionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="Confirmation required")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_active = True
     db.commit()
     db.refresh(user)
 

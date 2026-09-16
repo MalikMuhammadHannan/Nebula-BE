@@ -22,9 +22,10 @@ class UserResponse(BaseModel):
 
 
 class AssistantResponse(BaseModel):
+    action: str | None
     matches: list[UserResponse]
     message: str
 
 
-class DeactivateUserRequest(BaseModel):
+class ConfirmActionRequest(BaseModel):
     confirm: bool
