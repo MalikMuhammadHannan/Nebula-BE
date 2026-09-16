@@ -4,6 +4,7 @@ from app.api.auth import router as auth_router
 from app.api.blogs import  router as blog_router
 from app.api.upload import  router as upload_router
 from app.api.document import router as document_router
+from app.api.ai_blog import router as ai_blog_router
 from app.api import comment, likes
 
 
@@ -28,6 +29,7 @@ app.include_router(auth_router)
 app.include_router(blog_router)
 app.include_router(upload_router)
 app.include_router(document_router)
+app.include_router(ai_blog_router)
 
 app.include_router(comment.router, tags=["comment"])
 app.include_router(likes.router, tags=["likes"])
