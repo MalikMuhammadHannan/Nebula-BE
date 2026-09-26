@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     role:str
     is_active:bool
 
+
     class Config:
         from_attributes = True
 

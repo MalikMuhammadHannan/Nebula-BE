@@ -29,6 +29,12 @@ def generate_ai_blog(
     if not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+    if current_user.token_balance <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail="You have no AI tokens left. Please purchase more tokens to continue.",
+        )
+
     result = generate_blog_from_query(payload.query)
     if not result or not result.get("content"):
         raise HTTPException(status_code=422, detail="Could not generate a blog for this query")
@@ -54,6 +60,9 @@ def generate_ai_blog(
         author_id=current_user.id,
         embedding=embedding_service.embed_texts([f"{title}\n{description}\n{content}"])[0],
     )
+
+    tokens_used = result.get("tokens_used", 0)
+    current_user.token_balance = max(0, current_user.token_balance - tokens_used)
 
     db.add(blog)
     db.commit()

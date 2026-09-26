@@ -64,6 +64,13 @@ def _parse_blog_text(text: str) -> dict:
     return {"title": title, "description": description, "content": content}
 
 
+def _usage_tokens(message) -> int:
+    usage = getattr(message, "usage_metadata", None)
+    if not usage:
+        return 0
+    return usage.get("total_tokens", 0) or 0
+
+
 def _scrape_with_fallback(requested_url: str, candidate_urls: list[str], tried: set[str]) -> dict:
     """Try the model's requested url first; if it comes back empty (dead link,
     bot-blocked, etc.), fall back to other urls from the same search results
@@ -92,9 +99,11 @@ def generate_blog_from_query(query: str) -> dict | None:
     scraped_any = False
     tried_urls: set[str] = set()
     last_search_urls: list[str] = []
+    tokens_used = 0
 
     for _ in range(MAX_TOOL_STEPS):
         response = tool_model.invoke(messages)
+        tokens_used += _usage_tokens(response)
         messages.append(response)
 
         tool_calls = getattr(response, "tool_calls", None)
@@ -139,6 +148,7 @@ def generate_blog_from_query(query: str) -> dict | None:
 
     messages.append(HumanMessage(content=WRITE_PROMPT_TEMPLATE.format(query=query)))
     final_response = LLMService.get_model().invoke(messages)
+    tokens_used += _usage_tokens(final_response)
     final_text = (final_response.content or "").strip()
 
 
@@ -147,4 +157,5 @@ def generate_blog_from_query(query: str) -> dict | None:
 
     parsed = _parse_blog_text(final_text)
     parsed["images"] = images
+    parsed["tokens_used"] = tokens_used
     return parsed

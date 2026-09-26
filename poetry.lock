@@ -3624,6 +3624,25 @@ typing-extensions = {version = ">=4.10.0", markers = "python_version < \"3.13\""
 full = ["httpx (>=0.27.0,<0.29.0)", "httpx2 (>=2.0.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
+name = "stripe"
+version = "15.6.1"
+description = "Python bindings for the Stripe API"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "stripe-15.6.1-py3-none-any.whl", hash = "sha256:b33e1ea76462d7289e5fe755a1132b82099151bfb31e961021655471e6d216bf"},
+    {file = "stripe-15.6.1.tar.gz", hash = "sha256:9f3986aa960419041aba9c76191746bdf2c342c95892acfbf6edb500ab006d31"},
+]
+
+[package.dependencies]
+requests = ">=2.20"
+typing_extensions = ">=4.7.0"
+
+[package.extras]
+async = ["httpx"]
+
+[[package]]
 name = "sympy"
 version = "1.14.0"
 description = "Computer algebra system (CAS) in Python"
@@ -4827,4 +4846,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "0d3947b7ffd17be0bcdf00cf69b1acd5447fd30f9dca1153e76c39964c253ee5"
+content-hash = "bcd2c2dfaa66b0bc10aee766919ff7196ba6765457a8f9142218c0ce74fc5570"

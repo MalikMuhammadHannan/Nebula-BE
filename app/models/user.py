@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean
+from sqlalchemy import Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 from datetime import datetime, timezone
 from sqlalchemy import DateTime
@@ -55,4 +55,12 @@ class User(Base):
     )
     likes: Mapped[list["Like"]] = relationship(
         "Like", back_populates="user", cascade="all, delete-orphan"
-    ) 
+    )
+    token_balance : Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+    purchases = relationship(
+        "Purchase", back_populates="user", cascade="all, delete-orphan"
+    )

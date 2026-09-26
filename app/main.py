@@ -6,6 +6,7 @@ from app.api.upload import  router as upload_router
 from app.api.document import router as document_router
 from app.api.ai_blog import router as ai_blog_router
 from app.api.users import router as all_users_router
+from app.api.billing import router as billing_router
 
 from app.api import comment, likes
 
@@ -33,6 +34,7 @@ app.include_router(upload_router)
 app.include_router(document_router)
 app.include_router(ai_blog_router)
 app.include_router(all_users_router)
+app.include_router(billing_router)
 app.include_router(comment.router, tags=["comment"])
 app.include_router(likes.router, tags=["likes"])
 
