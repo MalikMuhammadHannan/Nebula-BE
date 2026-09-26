@@ -18,6 +18,7 @@ from app.services.image_generator import image_generator
 from app.ai.chunking import chunking_service
 from app.ai.embeddings import embedding_service
 from app.ai.llm import LLMService
+from app.ai.token_usage import usage_tokens
 
 TOP_K_CHUNKS = 5
 HISTORY_LIMIT = 5
@@ -154,6 +155,11 @@ def query_document(
             status_code=400,
             detail="Query cannot be empty"
         )
+    if current_user.token_balance <= 0:
+            raise HTTPException(
+                status_code=402,
+                detail="You have no AI tokens left. Please purchase more tokens to continue.",
+            )    
 
     try:
         document_id = int(payload.session_id)
@@ -225,6 +231,10 @@ def query_document(
         "context": context,
         "query": payload.query,
     })
+
+    tokens_used = usage_tokens(raw)
+    current_user.token_balance = max(0, current_user.token_balance - tokens_used)
+
     answer = (raw.content or "").strip()
 
     if not answer:
@@ -240,15 +250,15 @@ def query_document(
     title = " ".join(words[:8]) + ("..." if len(words) > 8 else "")
     content = answer
 
-    image_url = None
-    try:
-        image = image_generator.generate(title)
-        buffer = BytesIO()
-        image.save(buffer, format="PNG")
-        buffer.seek(0)
-        image_url = upload_image(buffer)["url"]
-    except Exception:
-        image_url = None
+    # image_url = None
+    # try:
+    #     image = image_generator.generate(title)
+    #     buffer = BytesIO()
+    #     image.save(buffer, format="PNG")
+    #     buffer.seek(0)
+    #     image_url = upload_image(buffer)["url"]
+    # except Exception:
+    #     image_url = None
 
     db.add(DocumentChatTurn(
         document_id=document.id,
@@ -257,7 +267,7 @@ def query_document(
         title=title,
         description=description,
         content=content,
-        image_url=image_url,
+        image_url=None,
     ))
     db.commit()
 
@@ -266,7 +276,7 @@ def query_document(
             "id": 0,
             "title": title,
             "description": description,
-            "image_url": image_url,
+            "image_url": None,
             "author_id": current_user.id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "content": content,
