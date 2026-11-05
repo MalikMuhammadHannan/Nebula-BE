@@ -14,7 +14,9 @@ cloudinary.config(
 def upload_image(file):
     result = cloudinary.uploader.upload(
         file,
-        folder="blogs"
+        folder="blogs",
+        resource_type="image",
+        allowed_formats=["jpg", "jpeg", "png", "webp", "gif"],
     )
     
     return {
