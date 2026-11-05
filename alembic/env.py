@@ -5,12 +5,17 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from app.config import DATABASE_URL
 from app.database.base import Base
 from app.models import User, Blog, Document, DocumentChunk, DocumentChatTurn, Purchase  # noqa: F401 ensures all models are registered on Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set; add it to .env")
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
