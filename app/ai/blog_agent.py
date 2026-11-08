@@ -93,6 +93,7 @@ def generate_blog_from_query(query: str) -> dict | None:
     scraped_any = False
     tried_urls: set[str] = set()
     last_search_urls: list[str] = []
+    source_urls: list[str] = []
     tokens_used = 0
 
     for _ in range(MAX_TOOL_STEPS):
@@ -120,6 +121,11 @@ def generate_blog_from_query(query: str) -> dict | None:
                 if result.get("text"):
                     scraped_any = True
                     images.extend(result.get("images", []))
+                    scraped_url = result.get("url") or requested_url
+                    if scraped_url in source_urls:
+                        source_urls.remove(scraped_url)
+                    # The page actually read goes first -- it's what the blog is written from.
+                    source_urls.insert(0, scraped_url)
             else:
                 try:
                     result = tool_fn.invoke(call["args"])
@@ -128,6 +134,7 @@ def generate_blog_from_query(query: str) -> dict | None:
 
                 if call["name"] == "search_web_tool" and isinstance(result, list):
                     last_search_urls = [r.get("url", "") for r in result if isinstance(r, dict)]
+                    source_urls.extend(u for u in last_search_urls if u and u not in source_urls)
 
             messages.append(ToolMessage(
                 content=str(result),
@@ -151,5 +158,6 @@ def generate_blog_from_query(query: str) -> dict | None:
 
     parsed = _parse_blog_text(final_text)
     parsed["images"] = images
+    parsed["sources"] = source_urls
     parsed["tokens_used"] = tokens_used
     return parsed

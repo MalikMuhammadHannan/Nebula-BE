@@ -43,6 +43,10 @@ def generate_ai_blog(
     description = result["description"]
     content = result["content"]
 
+    sources = result.get("sources", [])
+    if sources:
+        description += "\n\nSources:\n" + "\n".join(f"- {url}" for url in sources)
+
     image_url = None
     for image in result.get("images", []):
         try:
@@ -58,7 +62,7 @@ def generate_ai_blog(
         content=content,
         image_url=image_url,
         author_id=current_user.id,
-        embedding=embedding_service.embed_texts([f"{title}\n{description}\n{content}"])[0],
+        embedding=embedding_service.embed_texts([f"{title}\n{result['description']}\n{content}"])[0],
     )
 
     tokens_used = result.get("tokens_used", 0)

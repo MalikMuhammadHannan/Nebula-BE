@@ -22,3 +22,7 @@ def create_checkout_session(user_id: int, purchase_id: int, price_id: str, idemp
 
 def construct_webhook_event(payload: bytes, sig_header: str | None):
     return stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+
+
+def retrieve_checkout_session(session_id: str):
+    return stripe.checkout.Session.retrieve(session_id)

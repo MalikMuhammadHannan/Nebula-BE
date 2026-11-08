@@ -22,7 +22,10 @@ from app.ai.token_usage import usage_tokens
 
 TOP_K_CHUNKS = 5
 HISTORY_LIMIT = 5
-RELEVANCE_THRESHOLD = 0.75
+RELEVANCE_THRESHOLD = 0.9
+# Small models over-use a special keyword like "NOT_FOUND" when it's offered,
+# so the prompt asks for a natural sentence and we detect how it starts.
+NOT_FOUND_PREFIXES = ("the document does not mention", "the document doesn't mention", "not_found")
 
 QUERY_PROMPT = """You are a document question-answering assistant.
 
@@ -35,7 +38,10 @@ Relevant document excerpts:
 User question:
 {query}
 
-Write a concise answer to the question in 2-3 sentences, using only the information in the excerpts and previous answers above. Do not use outside knowledge, and do not guess or invent information.
+Questions that say "he", "she", "they" or "the name" refer to the person or subject the document is about. The excerpt marked [Start of document] usually begins with that name or title.
+
+Write a concise answer to the question in 2-3 sentences, using only the information in the excerpts and previous answers above. Do not use outside knowledge, and do not guess or invent information. Keep numbers and names exactly as written in the excerpts.
+If the excerpts do not cover the question, reply only: The document does not mention this.
 """
 
 
@@ -184,9 +190,14 @@ def query_document(
             detail="Session not found"
         )
 
+    # Only answered turns go into the history: a run of "not found" turns
+    # makes the model keep answering NOT_FOUND even when the answer is in the excerpts.
     previous_turns = (
         db.query(DocumentChatTurn)
-        .filter(DocumentChatTurn.document_id == document.id)
+        .filter(
+            DocumentChatTurn.document_id == document.id,
+            DocumentChatTurn.found.is_(True),
+        )
         .order_by(DocumentChatTurn.created_at.desc())
         .limit(HISTORY_LIMIT)
         .all()
@@ -195,7 +206,7 @@ def query_document(
 
     if previous_turns:
         history = "\n".join(
-            f"Q: {turn.query}\nA: {turn.title + ' - ' + turn.description if turn.found else '(not found in document)'}"
+            f"Q: {turn.query}\nA: {turn.title} - {turn.description}"
             for turn in previous_turns
         )
     else:
@@ -217,12 +228,30 @@ def query_document(
         .all()
     )
 
-    if not rows or rows[0].distance > RELEVANCE_THRESHOLD:
+    chunks = [chunk for chunk, distance in rows if distance <= RELEVANCE_THRESHOLD]
+
+    # The start of a document (name, title, contact details, summary) rarely
+    # matches short questions like "what's the name?" semantically, so always
+    # include it in the context.
+    if not any(chunk.chunk_index == 0 for chunk in chunks):
+        first_chunk = (
+            db.query(DocumentChunk)
+            .filter(DocumentChunk.document_id == document.id, DocumentChunk.chunk_index == 0)
+            .first()
+        )
+        if first_chunk:
+            chunks.append(first_chunk)
+
+    if not chunks:
         db.add(DocumentChatTurn(document_id=document.id, query=payload.query, found=False))
         db.commit()
         return []
 
-    context = "\n\n".join(chunk.chunk_text for chunk, _ in rows)
+    chunks.sort(key=lambda chunk: chunk.chunk_index)
+    context = "\n\n".join(
+        ("[Start of document]\n" if chunk.chunk_index == 0 else "[Excerpt]\n") + chunk.chunk_text
+        for chunk in chunks
+    )
 
     prompt = LLMService.get_prompt(QUERY_PROMPT)
     chain = prompt | LLMService.get_model()
@@ -237,7 +266,7 @@ def query_document(
 
     answer = (raw.content or "").strip()
 
-    if not answer:
+    if not answer or answer.lower().startswith(NOT_FOUND_PREFIXES):
         db.add(DocumentChatTurn(document_id=document.id, query=payload.query, found=False))
         db.commit()
         return []

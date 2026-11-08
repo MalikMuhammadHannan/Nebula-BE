@@ -18,3 +18,12 @@ class TokenPackageResponse(BaseModel):
     key: str
     tokens: int
     amount: int
+
+
+class VerifySessionRequest(BaseModel):
+    session_id: str
+
+
+class VerifySessionResponse(BaseModel):
+    status: str
+    token_balance: int

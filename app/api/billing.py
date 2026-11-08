@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from uuid import uuid4
 
 import stripe
@@ -15,8 +14,15 @@ from app.schema.billing import (
     CheckoutSessionResponse,
     TokenBalanceResponse,
     TokenPackageResponse,
+    VerifySessionRequest,
+    VerifySessionResponse,
 )
-from app.services.stripe_service import construct_webhook_event, create_checkout_session
+from app.services.billing_service import fulfill_checkout_session
+from app.services.stripe_service import (
+    construct_webhook_event,
+    create_checkout_session,
+    retrieve_checkout_session,
+)
 
 router = APIRouter(
     prefix="/billing",
@@ -86,6 +92,36 @@ def create_checkout(
     return CheckoutSessionResponse(checkout_url=session.url, session_id=session.id)
 
 
+@router.post("/verify-session", response_model=VerifySessionResponse)
+def verify_checkout_session(
+    payload: VerifySessionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Called by the success page so tokens are credited even if the webhook is slow or missing."""
+    purchase = (
+        db.query(Purchase)
+        .filter(
+            Purchase.stripe_checkout_session_id == payload.session_id,
+            Purchase.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+
+    if purchase.status != "completed":
+        try:
+            session = retrieve_checkout_session(payload.session_id)
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=502, detail=f"Could not verify payment: {e.user_message or str(e)}")
+        fulfill_checkout_session(db, session.to_dict())
+
+    db.refresh(purchase)
+    db.refresh(current_user)
+    return VerifySessionResponse(status=purchase.status, token_balance=current_user.token_balance)
+
+
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
@@ -99,23 +135,8 @@ async def stripe_webhook(
     except (ValueError, stripe.error.SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid webhook payload or signature")
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        purchase_id = (session.get("metadata") or {}).get("purchase_id")
-
-        purchase = (
-            db.query(Purchase).filter(Purchase.id == purchase_id).first()
-            if purchase_id
-            else db.query(Purchase).filter(Purchase.stripe_checkout_session_id == session.get("id")).first()
-        )
-
-        if purchase and purchase.status != "completed" and session.get("payment_status") == "paid":
-            user = db.query(User).filter(User.id == purchase.user_id).first()
-            if user:
-                user.token_balance += purchase.tokens
-            purchase.status = "completed"
-            purchase.stripe_payment_intent_id = session.get("payment_intent")
-            purchase.completed_at = datetime.now(timezone.utc)
-            db.commit()
+    if event["type"] in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        # StripeObject is not a dict in stripe>=12, so convert before using .get()
+        fulfill_checkout_session(db, event["data"]["object"].to_dict())
 
     return {"status": "success"}
