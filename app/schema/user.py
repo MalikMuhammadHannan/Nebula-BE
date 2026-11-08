@@ -1,9 +1,12 @@
+from typing import Literal
+
 from pydantic import BaseModel,EmailStr
 
 class UserCreate(BaseModel):
     full_name:str
     email:EmailStr
     password:str
+    role:Literal["admin","editor","user"] = "user"
 
 
 class AssistantQuery(BaseModel):
